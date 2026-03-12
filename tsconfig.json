@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "types": ["vitest/globals"],
+
+    // Disabled due to conflict with Biome's `useLiteralKeys` rule (part of recommended preset)
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "include": ["index.ts", "src/**/*.ts", "tests/**/*.ts", "vitest.config.ts"]
+}
