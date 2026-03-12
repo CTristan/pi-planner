@@ -46,10 +46,10 @@ export async function executeExplore(
   const task = params.task;
 
   return new Promise((resolve) => {
+    // Conditionally include --model flag based on exploreModel setting
     const args = [
       "--print",
-      "--model",
-      exploreModel,
+      ...(exploreModel ? ["--model", exploreModel] : []),
       "--tools",
       exploreTools.join(","),
       "--no-session",
@@ -65,8 +65,8 @@ export async function executeExplore(
       stdio: ["pipe", "pipe", "pipe"],
       env: {
         ...process.env,
-        // Pass explicit model to avoid override by model-selector
-        PI_EXPLICIT_MODEL: exploreModel,
+        // Pass explicit model to avoid override by model-selector (only if set)
+        ...(exploreModel ? { PI_EXPLICIT_MODEL: exploreModel } : {}),
       },
     });
 

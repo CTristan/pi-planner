@@ -78,8 +78,9 @@ function mergeConfig(
   }
 
   // Fill in defaults for missing keys
+  // Note: exploreModel is intentionally left undefined to allow "any model" behavior
   return {
-    exploreModel: result.exploreModel ?? DEFAULT_CONFIG.exploreModel,
+    exploreModel: result.exploreModel, // Can be undefined
     planningModel: result.planningModel ?? DEFAULT_CONFIG.planningModel,
     exploreTools: result.exploreTools ?? DEFAULT_CONFIG.exploreTools,
     outputPath: result.outputPath ?? DEFAULT_CONFIG.outputPath,
@@ -125,7 +126,7 @@ export function saveConfig(
 
   // Only save the fields that were explicitly set
   const toSave: PlannerConfig = {};
-  if (config.exploreModel !== undefined) {
+  if (config.exploreModel !== undefined && merged.exploreModel !== undefined) {
     toSave.exploreModel = merged.exploreModel;
   }
   if (
@@ -154,7 +155,7 @@ export function getConfigDisplay(
   config: PlannerConfigResolved,
 ): Record<string, string | string[]> {
   return {
-    exploreModel: config.exploreModel,
+    exploreModel: config.exploreModel ?? "Any",
     planningModel: config.planningModel ?? "not set",
     exploreTools: config.exploreTools.join(", "),
     outputPath: config.outputPath,

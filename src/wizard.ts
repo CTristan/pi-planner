@@ -369,8 +369,8 @@ export async function runConfigWizard(ctx: ExtensionContext): Promise<void> {
       {
         id: "exploreModel",
         label: "Explore model",
-        currentValue: currentConfig.exploreModel,
-        values: [currentConfig.exploreModel], // Single value - will trigger onChange on Enter
+        currentValue: currentConfig.exploreModel ?? "Any",
+        values: [currentConfig.exploreModel ?? "Any"], // Single value - will trigger onChange on Enter
       },
       {
         id: "planningModel",
@@ -433,10 +433,33 @@ export async function runConfigWizard(ctx: ExtensionContext): Promise<void> {
 
     switch (selectedId) {
       case "exploreModel": {
-        const newValue = await selectModel(ctx, config.exploreModel, false);
-        if (newValue) {
-          saveConfig(scope, { exploreModel: newValue }, ctx.cwd);
-          ctx.ui.notify(`Saved: explore model set to "${newValue}"`, "info");
+        const newValue = await selectModel(
+          ctx,
+          config.exploreModel ?? "",
+          true,
+        );
+        if (newValue !== undefined) {
+          if (newValue === "") {
+            // Clear explore model - omit from config
+            const { exploreModel: _, ...rest } = config;
+            saveConfig(
+              scope,
+              rest as unknown as {
+                planningModel?: string;
+                exploreTools?: string[];
+                outputPath?: string;
+                guidanceFiles?: string[];
+              },
+              ctx.cwd,
+            );
+            ctx.ui.notify(
+              "Saved: explore model cleared (will use any model)",
+              "info",
+            );
+          } else {
+            saveConfig(scope, { exploreModel: newValue }, ctx.cwd);
+            ctx.ui.notify(`Saved: explore model set to "${newValue}"`, "info");
+          }
         }
         break;
       }

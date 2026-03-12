@@ -59,7 +59,11 @@ describe("explore", () => {
   describe("loadConfig for explore", () => {
     it("should load explore model from config", () => {
       // Set up default project config to ensure test isolation
-      saveConfig("project", { exploreModel: "github-copilot/gemini-3-flash-preview" }, testDir);
+      saveConfig(
+        "project",
+        { exploreModel: "github-copilot/gemini-3-flash-preview" },
+        testDir,
+      );
 
       const ctx = { cwd: testDir } as never;
       const config = loadConfig(ctx);

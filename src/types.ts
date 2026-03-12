@@ -24,7 +24,7 @@ export interface PlannerConfig {
  * Configuration with all required values (defaults filled in).
  */
 export interface PlannerConfigResolved {
-  exploreModel: string;
+  exploreModel: string | undefined;
   planningModel: string | undefined;
   exploreTools: string[];
   outputPath: string;
@@ -35,7 +35,7 @@ export interface PlannerConfigResolved {
  * Default configuration values.
  */
 export const DEFAULT_CONFIG: PlannerConfigResolved = {
-  exploreModel: "github-copilot/gemini-3-flash-preview",
+  exploreModel: undefined,
   planningModel: undefined,
   exploreTools: ["read", "bash", "grep", "find", "ls"],
   outputPath: "PLAN.md",

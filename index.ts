@@ -63,7 +63,7 @@ export default function plannerExtension(pi: ExtensionAPI) {
   });
 
   // Register the /planning-config command
-  pi.registerCommand("/planning-config", {
+  pi.registerCommand("planning-config", {
     description: "Configure pi-planner settings",
     handler: async (_args: string | undefined, ctx: ExtensionContext) => {
       await runConfigWizard(ctx);
