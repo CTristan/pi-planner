@@ -6,10 +6,245 @@ import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { getSettingsListTheme } from "@mariozechner/pi-coding-agent";
 import {
   Container,
+  fuzzyFilter,
+  getEditorKeybindings,
+  Input,
   type SettingItem,
   SettingsList,
+  Spacer,
+  Text,
 } from "@mariozechner/pi-tui";
 import { type ConfigScope, loadConfig, saveConfig } from "./config.js";
+
+/**
+ * Model item for the selector.
+ */
+interface ModelItem {
+  provider: string;
+  id: string;
+  label: string;
+}
+
+/**
+ * Simple theme interface for the model selector.
+ */
+interface SimpleTheme {
+  color: (name: string, text: string) => string;
+}
+
+/**
+ * Theme colors for the model selector.
+ */
+function getModelSelectorTheme(theme: SimpleTheme) {
+  return {
+    accent: (text: string) => theme.color("accent", text),
+    muted: (text: string) => theme.color("muted", text),
+    success: (text: string) => theme.color("success", text),
+  };
+}
+
+/**
+ * Interactive model selector component - similar to pi's /model command.
+ * Features:
+ * - Search input to filter models
+ * - Fuzzy filtering by model ID and provider
+ * - Arrow key navigation
+ * - Enter to select
+ * - Shows current model with checkmark
+ */
+class ModelSelectorComponent extends Container {
+  private searchInput: Input;
+  private listContainer: Container;
+  private allModels: ModelItem[] = [];
+  private filteredModels: ModelItem[] = [];
+  private selectedIndex = 0;
+  private currentModelId: string;
+  private theme: SimpleTheme;
+  private onSelect: (model: string) => void;
+  private onCancel: () => void;
+
+  constructor(
+    theme: SimpleTheme,
+    models: ModelItem[],
+    currentModel: string | undefined,
+    onSelect: (model: string) => void,
+    onCancel: () => void,
+  ) {
+    super();
+    this.theme = theme;
+    this.allModels = models;
+    this.currentModelId = currentModel ?? "";
+    this.onSelect = onSelect;
+    this.onCancel = onCancel;
+
+    // Parse current model to get provider/id
+    let currentProvider = "";
+    let currentId = "";
+    if (currentModel?.includes("/")) {
+      const parts = currentModel.split("/");
+      currentProvider = parts[0] ?? "";
+      currentId = parts.slice(1).join("/");
+    }
+
+    // Sort models: current model first, then by provider
+    this.allModels.sort((a, b) => {
+      const aIsCurrent = a.provider === currentProvider && a.id === currentId;
+      const bIsCurrent = b.provider === currentProvider && b.id === currentId;
+      if (aIsCurrent && !bIsCurrent) return -1;
+      if (!aIsCurrent && bIsCurrent) return 1;
+      return a.provider.localeCompare(b.provider);
+    });
+
+    this.filteredModels = this.allModels;
+    this.selectedIndex = Math.min(
+      this.selectedIndex,
+      Math.max(0, this.filteredModels.length - 1),
+    );
+
+    // Add hint about filtering
+    this.addChild(
+      new Text(this.theme.color("muted", "Type to filter models"), 0, 0),
+    );
+    this.addChild(new Spacer(1));
+
+    // Create search input
+    this.searchInput = new Input();
+    this.searchInput.onSubmit = () => {
+      const selected = this.filteredModels[this.selectedIndex];
+      if (selected) {
+        this.handleSelect(selected);
+      }
+    };
+    this.addChild(this.searchInput);
+    this.addChild(new Spacer(1));
+
+    // Create list container
+    this.listContainer = new Container();
+    this.addChild(this.listContainer);
+    this.addChild(new Spacer(1));
+
+    // Initial render
+    this.updateList();
+  }
+
+  private updateList(): void {
+    this.listContainer.clear();
+    const theme = getModelSelectorTheme(this.theme);
+    const maxVisible = 10;
+
+    const startIndex = Math.max(
+      0,
+      Math.min(
+        this.selectedIndex - Math.floor(maxVisible / 2),
+        this.filteredModels.length - maxVisible,
+      ),
+    );
+    const endIndex = Math.min(
+      startIndex + maxVisible,
+      this.filteredModels.length,
+    );
+
+    // Show visible slice of filtered models
+    for (let i = startIndex; i < endIndex; i++) {
+      const item = this.filteredModels[i];
+      if (!item) continue;
+
+      const isSelected = i === this.selectedIndex;
+      const isCurrent =
+        item.provider === this.currentModelId.split("/")[0] &&
+        item.id === this.currentModelId.split("/").slice(1).join("/");
+
+      let line = "";
+      if (isSelected) {
+        const prefix = theme.accent("→ ");
+        const modelText = `${item.id}`;
+        const providerBadge = theme.muted(`[${item.provider}]`);
+        const checkmark = isCurrent ? theme.success(" ✓") : "";
+        line = `${prefix}${theme.accent(modelText)} ${providerBadge}${checkmark}`;
+      } else {
+        const modelText = `  ${item.id}`;
+        const providerBadge = theme.muted(`[${item.provider}]`);
+        const checkmark = isCurrent ? theme.success(" ✓") : "";
+        line = `${modelText} ${providerBadge}${checkmark}`;
+      }
+
+      this.listContainer.addChild(new Text(line, 0, 0));
+    }
+
+    // Add scroll indicator if needed
+    if (startIndex > 0 || endIndex < this.filteredModels.length) {
+      const scrollInfo = theme.muted(
+        `  (${this.selectedIndex + 1}/${this.filteredModels.length})`,
+      );
+      this.listContainer.addChild(new Text(scrollInfo, 0, 0));
+    }
+
+    // Show "no results" if empty
+    if (this.filteredModels.length === 0) {
+      this.listContainer.addChild(
+        new Text(theme.muted("  No matching models"), 0, 0),
+      );
+    }
+  }
+
+  private filterModels(query: string): void {
+    this.filteredModels = query
+      ? fuzzyFilter(
+          this.allModels,
+          query,
+          ({ id, provider }) => `${id} ${provider}`,
+        )
+      : this.allModels;
+    this.selectedIndex = Math.min(
+      this.selectedIndex,
+      Math.max(0, this.filteredModels.length - 1),
+    );
+    this.updateList();
+  }
+
+  handleInput(keyData: string): void {
+    const kb = getEditorKeybindings();
+
+    // Up arrow
+    if (kb.matches(keyData, "selectUp")) {
+      if (this.filteredModels.length === 0) return;
+      this.selectedIndex =
+        this.selectedIndex === 0
+          ? this.filteredModels.length - 1
+          : this.selectedIndex - 1;
+      this.updateList();
+    }
+    // Down arrow
+    else if (kb.matches(keyData, "selectDown")) {
+      if (this.filteredModels.length === 0) return;
+      this.selectedIndex =
+        this.selectedIndex === this.filteredModels.length - 1
+          ? 0
+          : this.selectedIndex + 1;
+      this.updateList();
+    }
+    // Enter
+    else if (kb.matches(keyData, "selectConfirm")) {
+      const selected = this.filteredModels[this.selectedIndex];
+      if (selected) {
+        this.handleSelect(selected);
+      }
+    }
+    // Escape
+    else if (kb.matches(keyData, "selectCancel")) {
+      this.onCancel();
+    }
+    // Pass everything else to search input
+    else {
+      this.searchInput.handleInput(keyData);
+      this.filterModels(this.searchInput.getValue());
+    }
+  }
+
+  private handleSelect(model: ModelItem): void {
+    this.onSelect(`${model.provider}/${model.id}`);
+  }
+}
 
 /**
  * Fetches available models from pi's model registry.
@@ -33,7 +268,7 @@ async function getAvailableModels(
 }
 
 /**
- * Handles model selection - shows available models or allows custom input.
+ * Handles model selection - shows interactive model selector (like /model command).
  */
 async function selectModel(
   ctx: ExtensionContext,
@@ -42,29 +277,69 @@ async function selectModel(
 ): Promise<string | undefined> {
   const availableModels = await getAvailableModels(ctx);
 
-  const modelOptions: string[] = [];
-  if (allowClear) {
-    modelOptions.push("Clear (not set)");
-  }
-  if (availableModels.length > 0) {
-    modelOptions.push(...availableModels.map((m) => `${m.provider}/${m.id}`));
-  }
-  modelOptions.push("Custom model...");
-
-  const selected = await ctx.ui.select("Select model:", modelOptions);
-  if (!selected) {
-    return undefined;
-  }
-
-  if (selected === "Custom model...") {
+  if (availableModels.length === 0) {
+    // Fall back to simple input if no models available
     return ctx.ui.input("Enter model (provider/id format):", currentValue);
   }
 
-  if (selected === "Clear (not set)") {
-    return "";
+  // Convert to ModelItem format
+  const modelItems: ModelItem[] = availableModels.map((m) => ({
+    provider: m.provider,
+    id: m.id,
+    label: `${m.provider}/${m.id}`,
+  }));
+
+  // Build options for the initial select if allowClear
+  if (allowClear) {
+    const options = ["Clear (not set)", "Choose from available models..."];
+    const initialChoice = await ctx.ui.select("Select model:", options);
+    if (!initialChoice) return undefined;
+    if (initialChoice === "Clear (not set)") return "";
   }
 
-  return selected;
+  // Use custom component for model selection (like /model command)
+  return new Promise((resolve) => {
+    ctx.ui
+      .custom<string | null>((_tui, _theme, _kb, done) => {
+        const container = new Container();
+
+        // Create a simple theme adapter for pi-tui components
+        const simpleTheme: SimpleTheme = {
+          color: (name: string, text: string) => {
+            // Map common theme names to basic styling
+            if (name === "accent") return `\x1b[36m${text}\x1b[0m`; // Cyan
+            if (name === "success") return `\x1b[32m${text}\x1b[0m`; // Green
+            if (name === "muted") return `\x1b[90m${text}\x1b[0m`; // Gray
+            return text;
+          },
+        };
+
+        const modelSelector = new ModelSelectorComponent(
+          simpleTheme,
+          modelItems,
+          currentValue,
+          (model) => {
+            done(model);
+          },
+          () => done(null),
+        );
+
+        container.addChild(modelSelector);
+
+        return {
+          render: (w: number) => container.render(w),
+          invalidate: () => container.invalidate(),
+          handleInput: (data: string) => modelSelector.handleInput(data),
+        };
+      })
+      .then((result) => {
+        if (result === null) {
+          resolve(undefined);
+        } else {
+          resolve(result ?? undefined);
+        }
+      });
+  });
 }
 
 /**
