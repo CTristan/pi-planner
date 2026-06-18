@@ -1,0 +1,58 @@
+{
+  "name": "@hemocode/pi-planner",
+  "version": "1.0.0",
+  "description": "A Pi extension for planning sessions with cheap model exploration, context layering, and interactive configuration.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CTristan/pi-planner.git"
+  },
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "main": "index.ts",
+  "files": [
+    "index.ts",
+    "src/",
+    "prompts/",
+    "docs/",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "index.ts"
+    ],
+    "prompts": [
+      "prompts"
+    ]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.6",
+    "@mariozechner/pi-coding-agent": "latest",
+    "@types/node": "24.12.0",
+    "@vitest/coverage-v8": "4.0.18",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18"
+  },
+  "scripts": {
+    "type-check": "tsc",
+    "check": "biome check .",
+    "fix": "biome check --write .",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "ci": "./scripts/ci.sh",
+    "setup-hooks": "./scripts/setup-hooks.sh",
+    "prepare": "node scripts/prepare.js"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  }
+}
